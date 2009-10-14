@@ -14,6 +14,8 @@ NSString *Show_HoverView = @"SHOW";
 NSString *Show_LoginView = @"LSHOW";
 NSString *Show_WebView = @"WSHOW";
 NSString *Show_ConfView = @"CSHOW";
+NSString *Find_Flag = @"FindF";
+NSString *Change_Center = @"ChangeC";
 
 const int kGYImageViewMaxImageWidth = 5000;
 const int kGYImageViewMaxImageHeight = 5000;
@@ -92,7 +94,7 @@ const int kGYImageViewMaxLowResImageHeight = 512;
 //Toolbar
 @synthesize upperBar;
 @synthesize reloadButton;
-@synthesize showModelsButton;
+@synthesize tfButton;
 @synthesize loginButton;
 @synthesize scoreBoardButton;
 @synthesize curlUpButton;
@@ -105,6 +107,13 @@ const int kGYImageViewMaxLowResImageHeight = 512;
 @synthesize serverIndicator;
 @synthesize whereButton;
 
+
+@synthesize routeView = _routeView;
+@synthesize mapView   = _mapView;
+
+
+
+/*
 static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_t height)
 {
   CGSize imageSize = CGSizeMake(CGImageGetWidth(source), CGImageGetHeight(source));
@@ -127,12 +136,13 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
   CGContextRelease(context);
   return result;
 }
-
+*/
+ 
 - (GYImageView *)init
 {
-	self.decelerationRate = 0;//UIScrollViewDecelerationRateFast/10;
+	//self.decelerationRate = 0;//UIScrollViewDecelerationRateFast/10;
 
-	self.bounces=NO;
+	//self.bounces=NO;
 	[self setMultipleTouchEnabled:YES];
 	
 	
@@ -144,9 +154,9 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	
 
 	
-  contentView = [[UIView alloc] initWithFrame:self.frame];
-  [self addSubview:contentView];
-  super.delegate = self;
+//  contentView = [[UIView alloc] initWithFrame:self.frame];
+ // [self addSubview:contentView];
+  //super.delegate = self;
   
 	
 	
@@ -165,6 +175,18 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	noTouch = 0;
 	updateLoc_ind=1;
 	theDelegate.updateLoc_ind=1;
+	theDelegate.vertexCount_1=0;
+	theDelegate.vertexCount_2=0;
+	theDelegate.vertexCount_3=0;
+	theDelegate.vertexCount_4=0;
+	theDelegate.vertexMax_1=64;
+	theDelegate.vertexMax_2=64;
+	theDelegate.vertexMax_3=64;
+	theDelegate.vertexMax_4=64;
+	theDelegate.vertexBuffer_1=NULL;
+	theDelegate.vertexBuffer_2=NULL;
+	theDelegate.vertexBuffer_3=NULL;
+	theDelegate.vertexBuffer_4=NULL;
 	//meBtn.hidden=YES;
 	
 	userID.text=[NSString stringWithFormat:@"%@", theDelegate.p_name];
@@ -218,6 +240,8 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(showLoginViewNotif:) name:Show_LoginView object:nil];
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(showWebViewNotif:) name:Show_WebView object:nil];
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(showConfViewNotif:) name:Show_ConfView object:nil];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(flagTouched:) name:Find_Flag object:nil];
+	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(changeCenter:) name:Change_Center object:nil];
 	//[self login];	
 	[instructionSwitch addTarget:self action:@selector(switchInstruction) forControlEvents:UIControlEventValueChanged];
 
@@ -230,13 +254,103 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	//NSLog(@"%d",theDelegate.instruction_ind);
 	
 	
+	
+	
+	
+	
+	/////
+	// MapView
+	/////
+	
+	//[self addSubview:mappView];
+	
+	
+	//
+	// load the points from our local resource
+	//
+	
+	NSString* filePath = [[NSBundle mainBundle] pathForResource:@"route" ofType:@"csv"];
+	NSString* fileContents = [NSString stringWithContentsOfFile:filePath];
+	NSArray* pointStrings = [fileContents componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+	
+	NSMutableArray* points = [[NSMutableArray alloc] initWithCapacity:pointStrings.count];
+	
+	for(int idx = 0; idx < pointStrings.count; idx++)
+	{
+		// break the string down even further to latitude and longitude fields. 
+		NSString* currentPointString = [pointStrings objectAtIndex:idx];
+		NSArray* latLonArr = [currentPointString componentsSeparatedByCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@","]];
+		
+		CLLocationDegrees latitude  = [[latLonArr objectAtIndex:0] doubleValue];
+		CLLocationDegrees longitude = [[latLonArr objectAtIndex:1] doubleValue];
+		
+		CLLocation* currentLocation = [[[CLLocation alloc] initWithLatitude:latitude longitude:longitude] autorelease];
+		[points addObject:currentLocation];
+	}
+	
+	//
+	// Create our map view and add it as as subview. 
+	//
+	
+	
+
+	float x_ext = 0.25;
+	float y_ext = 0.15;
+	_mapView = [[MKMapView alloc] initWithFrame:CGRectMake(-x_ext*self.frame.size.width, -y_ext*self.frame.size.height, (1+x_ext*2)*self.frame.size.width, (1+y_ext*2)*self.frame.size.height)];
+	//[self addSubview:_mapView];
+	
+	//make it changeable
+	self.mapView.mapType=MKMapTypeHybrid;
+	self.mapView.showsUserLocation = YES;
+
+	// create our route layer view, and initialize it with the map on which it will be rendered. 
+	_routeView = [[CSMapRouteLayerView alloc] initWithRoute:points mapView:_mapView];
+	
+	[points release];
+	
+	//UIView *myView = [[self subviews] objectAtIndex:2];
+	
+	
+	
+	transformed = [CALayer layer];
+	transformed = self.layer;
+	//[[self layer] addSublayer:transformed];
+	transformed.frame = self.bounds;
+	
+	
+	// BJL: Add a perspective effect
+	CATransform3D initialTransform = transformed.sublayerTransform;
+	initialTransform.m34 = 1.0 / -250;
+	transformed.sublayerTransform = initialTransform;
+	
+	
+	CALayer *imageLayer = [CALayer layer];
+	imageLayer = _mapView.layer;
+	imageLayer.transform =  CATransform3DMakeRotation(20.0f * M_PI / 180.0f, 1.0f, 0.0f, 0.0f);//CATransform3DConcat( CATransform3DMakeRotation(20.0f * M_PI / 180.0f, 1.0f, 0.0f, 0.0f) , CATransform3DMakeScale(0.85f, 0.85f, 0.85f) );
+	[transformed addSublayer:imageLayer];
+	
+	
+	
+	// BJL: Enable multitouch
+	//	self.multipleTouchEnabled = YES;
+	//	self.userInteractionEnabled = YES;
+	
+	/////
+	// MapView
+	/////
+	
+	
+	
+	
+	
+	
 	if (i_name != nil && [i_name length] !=0)
 	{
 		[NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(login) userInfo:nil repeats:false];
 	}
 	
 	
-	[NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(setStartPoint) userInfo:nil repeats:false];
+	//[NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(setStartPoint) userInfo:nil repeats:false];
 	
 	
 	return self;
@@ -263,37 +377,6 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 
 - (void)updateImageView
 {
-  if ([imageViewDelegate respondsToSelector:@selector(imageViewWillUpdate:)])
-    [imageViewDelegate imageViewWillUpdate:self];
-
-  CGImageRef destImage = GYImageCreateScaledDown(rawImage,
-                                                 kGYImageViewMaxLowResImageWidth,
-                                                 kGYImageViewMaxLowResImageHeight);
-
-  UIImage *uiImage = [[UIImage alloc] initWithCGImage:destImage];
-
-  CGImageRelease(destImage);
-
-  [imageView removeFromSuperview];
-  [imageView release];
-
-  imageView = [[UIImageView alloc] initWithImage:uiImage];
-  [uiImage release];
-
-  imageView.frame = (CGRect) {
-    imageView.frame.origin, {
-      CGImageGetWidth(rawImage), CGImageGetHeight(rawImage)
-    }
-  };
-  contentView.frame = imageView.frame;
-  self.contentSize = imageView.frame.size;
-
-	imageView.opaque = YES;
-  [contentView insertSubview:imageView atIndex:0];
-  //[self updateDetailedImageView];
-	
-	
-	
 	
 	/////////
 	serverIndicator.backgroundColor=[UIColor darkGrayColor];
@@ -304,11 +387,10 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		//	self.serverButton.enabled = YES;
 		//	self.serverButton.badgeValue= @"Alive";
 	}
+	h_take_btn.hidden=YES;
+	h_upload_btn.hidden=YES;
 	[self putMe];
 	////////
-
-  if ([imageViewDelegate respondsToSelector:@selector(imageViewDidUpdate:)])
-    [imageViewDelegate imageViewDidUpdate:self];
 
 
 	
@@ -350,95 +432,31 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 
 - (void)updateDetailedImageView
 {
-	
-	
-  if ([imageViewDelegate respondsToSelector:@selector(imageViewWillUpdateDetailed:)])
-    [imageViewDelegate imageViewWillUpdateDetailed:self];
 
-  [detailedImageView removeFromSuperview];
-  [detailedImageView release];
-	
-
-	/*
-	uploadButton.enabled=NO;
-	uploadButton.badgeValue=@"Off";
-	captureButton.enabled=NO;
-	captureButton.badgeValue=@"Off";
-	playerStatus.enabled=YES;
-	playerStatus.badgeValue=@"Unknown";
-	serverButton.enabled=NO;
-	serverButton.badgeValue=@"Unknown";
-	*/
-	
-	h_take_btn.hidden=YES;
-	h_upload_btn.hidden=YES;
 	
 	
-	serverIndicator.backgroundColor=[UIColor darkGrayColor];
 	
+	serverIndicator.backgroundColor=[UIColor darkGrayColor];	
 	if (server_ind==1)
 	{
 		serverIndicator.backgroundColor=[UIColor greenColor];
-	//	self.serverButton.enabled = YES;
-	//	self.serverButton.badgeValue= @"Alive";
 	}
-	
-	
-
-
-	
-	
-  CGPoint p = self.contentOffset;
-  p.x = MAX(0, p.x);
-  p.y = MAX(0, p.y);
-  p.x = MIN(p.x, self.contentSize.width - self.frame.size.width);
-  p.y = MIN(p.y, self.contentSize.height - self.frame.size.height);
+  
+	/*
+	CGPoint p = self.contentOffset;
+	p.x = MAX(0, p.x);
+	p.y = MAX(0, p.y);
+	p.x = MIN(p.x, self.contentSize.width - self.frame.size.width);
+	p.y = MIN(p.y, self.contentSize.height - self.frame.size.height);
 
 	positionvertex=p;
 	theDelegate.lastLocationX=p.x;
 	theDelegate.lastLocationY=p.y;
-
+	 */
 	
-  CGRect rect = CGRectMake(p.x / scale, p.y / scale, self.frame.size.width / scale, self.frame.size.height / scale);
-
-  CGImageRef subimage = CGImageCreateWithImageInRect(rawImage, rect);
-  UIImage *uiImage = [UIImage imageWithCGImage:subimage];
-  CGImageRelease(subimage);
-
-  detailedImageView = [[UIImageView alloc] initWithImage:uiImage];
-	detailedImageView.userInteractionEnabled = NO;
-  detailedImageView.frame = rect;
-	detailedImageView.opaque=YES;
-  [contentView insertSubview:detailedImageView atIndex:1];
-
-	/*
-	//add buildings
-	[theDelegate startAnimation];
-	
-	//[self loadJSONData: [NSURL URLWithString:@"http://photocity.cs.washington.edu/get_models.php"] ];
-	//[theDelegate clearCache];
-	
-	if (disp_ind == 1)
-	{
-		[self putModelBtns:p];
-		[self putFlags:p];
-	}
-	//[self loadJSONFData: [NSURL URLWithString:@"http://photocity.cs.washington.edu/get_flags.php"] ];
-	if (disp_ind == 0)
-	{
-		[self putModels:p];
-		[self putModelBtns:p];
-	}
-	[theDelegate stopAnimation];
-	*/
 	[self putMe];
-	
-	
-	
-	//[detailedImageView addSubview:loginView];
-
-	//[detailedImageView addSubview:hoverView];
-	
+	//viewTouch = [[UIViewTouch alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
+	//[[theDelegate.viewController glView]  insertSubview:viewTouch atIndex:1];
 	[[theDelegate.viewController glView] insertSubview:hoverView atIndex:2];
 	[[theDelegate.viewController glView] insertSubview:loginView atIndex:3];
 	[[theDelegate.viewController glView] insertSubview:webViewFrame atIndex:4];
@@ -446,13 +464,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	[webViewFrame insertSubview: webView atIndex:1];
 	[hoverView insertSubview: infoView atIndex:1];
 	
-	//add buildings end
-	
-  if ([imageViewDelegate respondsToSelector:@selector(imageViewDidUpdateDetailed:)])
-    [imageViewDelegate imageViewDidUpdateDetailed:self];
 
-	detailedImageView.userInteractionEnabled = YES;
-	
 }
 
 
@@ -470,7 +482,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 {
 	if (!init_ind)
 	{
-		self.contentOffset=CGPointMake(theDelegate.lastLocationX,theDelegate.lastLocationY);
+		//self.contentOffset=CGPointMake(theDelegate.lastLocationX,theDelegate.lastLocationY);
 		init_ind=1;
 	}
 }
@@ -531,7 +543,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		{
 			NSString *tempString = [NSString stringWithFormat:@"http://photocity.cs.washington.edu/iphone/photos.php?player_id=%@", [NSString stringWithFormat:@"%d",  theDelegate.p_id]];
 		[webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:tempString]]];
-			webViewTitle.text = @"My Photo Stash";
+			webViewTitle.text = @"My Photo Status";
 		}
 		
 		
@@ -738,7 +750,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	frame.size.width=0.95*self.window.bounds.size.width;
 	frame.size.height=0.39*self.window.bounds.size.height;
 	frame.origin.x = /*positionvertex.x*/ + 8;//round((detailedImageView.frame.size.width - frame.size.width) / 2.0);
-	frame.origin.y = /*positionvertex.y*/ + 58;//detailedImageView.frame.size.height - 100;
+	frame.origin.y = /*positionvertex.y*/ + 72;//detailedImageView.frame.size.height - 100;
 	hoverView.frame = frame;
 	//close_btn = [UIButton buttonWithType:UIButtonTypeRoundedRect];
 	
@@ -858,6 +870,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	}
 	
 	[theDelegate startAnimation];
+	reloadButton.style=UIBarButtonItemStyleDone;
 	[self loadJSONData: [NSURL URLWithString:@"http://photocity.cs.washington.edu/get_models.php"] ];
 	[self loadJSONFData: [NSURL URLWithString:@"http://photocity.cs.washington.edu/get_flags.php"] ];	
 	[self loadJSONServerData:[NSURL URLWithString:@"http://fusion.cs.washington.edu:8000/heartbeat"] ];
@@ -867,21 +880,25 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 
 
 	[theDelegate stopAnimation];
-	[self showTeamFlags];
-	[NSTimer scheduledTimerWithTimeInterval:10.0 target:self selector:@selector(showTeamFlags) userInfo:nil repeats:false];
+	reloadButton.style=UIBarButtonItemStyleBordered;
+	//[self showTeamFlags];
+	//[NSTimer scheduledTimerWithTimeInterval:10.0 target:self selector:@selector(showTeamFlags) userInfo:nil repeats:false];
 	
 }
 
-- (void) showTeamFlags
+- (IBAction) showTeamFlags
 {
 	int total_flag = 0;
 	int cursor=0;
 //	int t1Length,t2Length,t3Length,t4Length,t0Length;
 		
-	[UIView beginAnimations:nil context:NULL];
-	[UIView setAnimationDuration:0.20];
+	
 	if (showTeamFlags_ind)
 	{
+		tfButton.style=UIBarButtonItemStyleDone;
+		
+		[UIView beginAnimations:nil context:NULL];
+		[UIView setAnimationDuration:0.20];
 		for (int ndx = 0; ndx < self.jsonTFArray.count; ndx++) {
 			NSDictionary *itemAtIndex = (NSDictionary *)[self.jsonTFArray objectAtIndex:ndx];
 			total_flag += [[itemAtIndex objectForKey:@"num_flags"] intValue];
@@ -914,12 +931,17 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 			}
 			
 			cursor+=25+195*num_flags/total_flag;
+			
 		}			
 
 		showTeamFlags_ind = 0;
+		[UIView commitAnimations];
 	}
 	else {
+		tfButton.style=UIBarButtonItemStyleBordered;
 		
+		[UIView beginAnimations:nil context:NULL];
+		[UIView setAnimationDuration:0.20];
 		for (int ndx = 0; ndx < self.jsonTFArray.count; ndx++) {
 			NSDictionary *itemAtIndex = (NSDictionary *)[self.jsonTFArray objectAtIndex:ndx];
 			total_flag += [[itemAtIndex objectForKey:@"num_flags"] intValue];
@@ -955,8 +977,9 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		}	
 		
 		showTeamFlags_ind = 1;
+		[UIView commitAnimations];
 	}
-	[UIView commitAnimations];
+	
 	
 	
 }
@@ -976,14 +999,15 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		[locationMgr startUpdatingLocation];
 		updateLoc_ind = 0;
 		whereButton.style=UIBarButtonItemStyleDone;
-		meBtn.hidden=NO;
+		//meBtn.hidden=NO;
 	}
 	else
 	{
 		//[locationMgr stopUpdatingLocation];
 		updateLoc_ind = 1;
 		whereButton.style=UIBarButtonItemStyleBordered;
-		meBtn.hidden=YES;
+		//self.mapView.showsUserLocation = NO;
+		//meBtn.hidden=YES;
 	}
 	theDelegate.updateLoc_ind=updateLoc_ind;
 	
@@ -1001,8 +1025,8 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	 */
 	CGPoint currentLoc;
 	imgSize=64;
-	currentLoc.x=-imgSize*(-fabs(newLocation.coordinate.longitude)-minBound.x)/(maxBound.x-minBound.x)+64;
-	currentLoc.y=imgSize*(fabs(newLocation.coordinate.latitude)-minBound.y)/(maxBound.y-minBound.y);
+	currentLoc.x=newLocation.coordinate.latitude;
+	currentLoc.y=newLocation.coordinate.longitude;
 	
 	NSLog(@"lng/lat:%g, %g\n", fabs(newLocation.coordinate.longitude), fabs(newLocation.coordinate.latitude));
 	
@@ -1035,6 +1059,16 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	[newMessage appendString:@"\n"];
 	NSLog(newMessage);
 	[newMessage release];
+	
+	
+	
+	
+	CLLocationCoordinate2D tmp_center;
+	tmp_center.latitude = (CLLocationDegrees)theDelegate.lastLocation.x;
+	tmp_center.longitude = (CLLocationDegrees)theDelegate.lastLocation.y;
+	theDelegate.movingCenter=tmp_center;
+	[[NSNotificationCenter defaultCenter] postNotificationName:Change_Center object:nil];
+
 }
 
 - (IBAction) changeDisp
@@ -1123,26 +1157,93 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 
 }
 	
--(void)flagTouched: (id)sender {
+-(void)flagTouched: (NSNotification *)aNotification {
 	NSLog(@"Flag Touched!");
     //NSLog(@"Selected cell is %d", [sender tag]);
 	//[theDelegate startAnimation];
 	//[self loadJSONFData: [NSURL URLWithString:@"http://photocity.cs.washington.edu/get_flags.php"] ];
 	//[theDelegate stopAnimation];
-	int flag_id;
+
+	/* old
+	 
+	int flag_id, ndx;
 	float  lat, lng;
 		
 	
 	CGPoint btn;
 	imgSize = 1024;
 	
-	NSDictionary *itemAtIndex = (NSDictionary *)[self.jsonFArray objectAtIndex:[sender tag]-1];
-	theDelegate.m_id = [[itemAtIndex objectForKey:@"model_id"] intValue];
-	theDelegate.f_id = [[itemAtIndex objectForKey:@"flag_id"] intValue];
 
+	 */
 
-	lat = [[itemAtIndex objectForKey:@"lat"] floatValue];
-	lng = [[itemAtIndex objectForKey:@"lng"] floatValue];
+	NSDictionary *itemAtIndex;
+	
+	
+	int ndx, s_ndx;
+	NSInteger model_id, flag_id, owner, s_mid, s_fid, s_owner;
+	float  lat, lng;
+	int touch_Ind = 0;
+	
+	CGPoint btn, s_btn;
+	float dist = 10000;
+	float tmp_dist = 10000;
+	CGPoint maxBound;
+	CGPoint minBound;
+	
+	maxBound.x=theDelegate.maxLatLon.y;
+	maxBound.y=theDelegate.maxLatLon.x;
+	minBound.x=theDelegate.minLatLon.y;
+	minBound.y=theDelegate.minLatLon.x;
+	CLLocationCoordinate2D flagCoord;
+ 	CLLocationCoordinate2D touchCoord = [_mapView convertPoint:theDelegate.touchEndPoint toCoordinateFromView:self ];
+	CGPoint touchPointCoord, flagPointCoord;
+
+	touchPointCoord.x= (float)touchCoord.longitude;
+	touchPointCoord.y=(float)touchCoord.latitude;
+	
+	for (ndx = 0; ndx < theDelegate.jFArray.count; ndx++) {
+		NSDictionary *itemAtIndex = (NSDictionary *)[self.jsonFArray objectAtIndex:ndx];
+		model_id = [[itemAtIndex objectForKey:@"model_id"] intValue];
+		flag_id = [[itemAtIndex objectForKey:@"flag_id"] intValue];
+		owner = [[itemAtIndex objectForKey:@"winner"] intValue];
+		
+		lat = [[itemAtIndex objectForKey:@"lat"] floatValue];
+		lng = [[itemAtIndex objectForKey:@"lng"] floatValue];
+		flagCoord.latitude = (CLLocationDegrees)lat;
+		flagCoord.longitude = (CLLocationDegrees)lng;
+		flagPointCoord = [_mapView convertCoordinate:flagCoord toPointToView:self];
+		
+		
+		
+
+		tmp_dist = powf(theDelegate.touchEndPoint.x-flagPointCoord.x+2, 2) + powf(theDelegate.touchEndPoint.y-flagPointCoord.y-16, 2);
+		if (dist > tmp_dist && tmp_dist < 400) // find the flag
+		{
+		
+			dist = tmp_dist;
+			s_btn = btn;
+			s_fid = flag_id;
+			s_mid = model_id;
+			s_owner = owner;
+			s_ndx = ndx;
+			
+			theDelegate.f_id = [[itemAtIndex objectForKey:@"flag_id"] intValue];
+			theDelegate.s_btnLoc= CGPointMake( lat, lng);
+			
+			touch_Ind = 1;
+		}
+		
+	}
+	
+	if (touch_Ind)
+	{
+	//Get the values of the touched flag
+	itemAtIndex = (NSDictionary *)[self.jsonFArray objectAtIndex:s_ndx];
+	theDelegate.m_id = s_mid;
+	theDelegate.f_id = s_fid;
+	
+//	lat = [[itemAtIndex objectForKey:@"lat"] floatValue];
+//	lng = [[itemAtIndex objectForKey:@"lng"] floatValue];
 	
 	if( [[itemAtIndex objectForKey:@"team1"] intValue] != nil )
 		theDelegate.team1_points = [[itemAtIndex objectForKey:@"team1"] intValue];
@@ -1197,7 +1298,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	theDelegate.img_URL = [site stringByAppendingString:[itemAtIndex objectForKey:@"rep_image"]];
 	theDelegate.m_name = [itemAtIndex objectForKey:@"name"];	
 		
-		
+/*		
 	btn.x=(lng-minBound.x)*imgSize/(maxBound.x-minBound.x);
 	btn.y=(lat-minBound.y)*imgSize/(maxBound.y-minBound.y);
 		
@@ -1214,15 +1315,17 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	//add
 	[detailedImageView addSubview:focusFlag];
 	check_focusFlag = 1;
+*/
 	
 	//[focusFlag release];
 	
 	//[itemAtIndex release];
 
 	[[NSNotificationCenter defaultCenter] postNotificationName:Show_HoverView object:nil];
-	
+	}
 }
 
+/*
 - (void)setCGImage:(CGImageRef)img
 {
   CGImageRelease(rawImage);
@@ -1234,6 +1337,8 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 {
   return rawImage;
 }
+
+ */
 
 - (void)dealloc
 {
@@ -1297,10 +1402,12 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	[jsonFArray release];
 	
 	//Notification
+	[[NSNotificationCenter defaultCenter] removeObserver:self name:Find_Flag object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:Show_HoverView object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:Show_LoginView object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:Show_ConfView object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:Show_WebView object:nil];
+	[[NSNotificationCenter defaultCenter] removeObserver:self name:Change_Center object:nil];
 	
 	//Tabbar
 	[ uploadButton release]; 
@@ -1310,7 +1417,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	
 	//Toolbar
 	[ reloadButton release];
-	[ showModelsButton release];
+	[ tfButton release];
 	[ loginButton release];
 	[photoStatusButton release];
 	[scoreBoardButton release];
@@ -1481,6 +1588,97 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		self.jsonFArray = [jsonData JSONValue]; 
 		theDelegate.jFArray = [jsonData JSONValue]; 
 		
+		int ndx;
+		NSInteger model_id, flag_id, owner;
+		float  lat, lng;
+		CGPoint btn;
+		
+		
+		//Allocate vertex array buffer
+		if(theDelegate.vertexBuffer_1 == NULL)
+			theDelegate.vertexBuffer_1 = malloc(theDelegate.vertexMax_1 * 3 * sizeof(GLfloat));
+		if(theDelegate.vertexBuffer_2 == NULL)
+			theDelegate.vertexBuffer_2 = malloc(theDelegate.vertexMax_2 * 3 * sizeof(GLfloat));
+		if(theDelegate.vertexBuffer_3 == NULL)
+			theDelegate.vertexBuffer_3 = malloc(theDelegate.vertexMax_3 * 3 * sizeof(GLfloat));
+		if(theDelegate.vertexBuffer_4 == NULL)
+			theDelegate.vertexBuffer_4 = malloc(theDelegate.vertexMax_4 * 3 * sizeof(GLfloat));
+		
+		theDelegate.count_1=0;
+		theDelegate.count_2=0;
+		theDelegate.count_3=0;
+		theDelegate.count_4=0;
+		
+		
+		
+		for (ndx = 0; ndx < theDelegate.jFArray.count; ndx++) {
+			NSDictionary *itemAtIndex = (NSDictionary *)[theDelegate.jFArray objectAtIndex:ndx];
+			model_id = [[itemAtIndex objectForKey:@"model_id"] intValue];
+			flag_id = [[itemAtIndex objectForKey:@"flag_id"] intValue];
+			owner = [[itemAtIndex objectForKey:@"winner"] intValue];
+			
+			lat = [[itemAtIndex objectForKey:@"lat"] floatValue];
+			lng = [[itemAtIndex objectForKey:@"lng"] floatValue];
+			
+		//	btn.x=-(lng);//-32;
+			//btn.y=lat;//+34;
+			
+			btn.x=(lng);
+			//negative direction opengl & iphone
+			btn.y= -(lat);
+			
+		
+		//	btn.x=(lng-theDelegate.minLatLon.y)*(1154.7)/(theDelegate.maxLatLon.y-theDelegate.minLatLon.y);
+		//	btn.y= (lat-theDelegate.minLatLon.x)*(1154.7)/(theDelegate.maxLatLon.x-theDelegate.minLatLon.x);
+			
+			
+			if (owner==1)
+			{
+				if(theDelegate.vertexCount_1 == theDelegate.vertexMax_1) {
+					theDelegate.vertexMax_1 = 2 * theDelegate.vertexMax_1;
+					theDelegate.vertexBuffer_1 = realloc(theDelegate.vertexBuffer_1, theDelegate.vertexMax_1 * 3 * sizeof(GLfloat));
+				}
+				theDelegate.vertexBuffer_1[3 * theDelegate.vertexCount_1 + 0] = btn.x;
+				theDelegate.vertexBuffer_1[3 * theDelegate.vertexCount_1 + 1] = btn.y;
+				theDelegate.vertexBuffer_1[3 * theDelegate.vertexCount_1 + 2] = 0.0f;
+			 	theDelegate.vertexCount_1 += 1;
+			}
+			if (owner==2)
+			{
+				if(theDelegate.vertexCount_2 == theDelegate.vertexMax_2) {
+					theDelegate.vertexMax_2 = 2 * theDelegate.vertexMax_2;
+					theDelegate.vertexBuffer_2 = realloc(theDelegate.vertexBuffer_2, theDelegate.vertexMax_2 * 3 * sizeof(GLfloat));
+				}
+				theDelegate.vertexBuffer_2[3 * theDelegate.vertexCount_2 + 0] = btn.x;
+				theDelegate.vertexBuffer_2[3 * theDelegate.vertexCount_2 + 1] = btn.y;
+				theDelegate.vertexBuffer_2[3 * theDelegate.vertexCount_2 + 2] = 0.0f;
+			 	theDelegate.vertexCount_2 += 1;
+			}
+			if (owner==3)
+			{
+				if(theDelegate.vertexCount_3 == theDelegate.vertexMax_3) {
+					theDelegate.vertexMax_3 = 2 * theDelegate.vertexMax_3;
+					theDelegate.vertexBuffer_3 = realloc(theDelegate.vertexBuffer_3, theDelegate.vertexMax_3 * 3 * sizeof(GLfloat));
+				}
+				theDelegate.vertexBuffer_3[3 * theDelegate.vertexCount_3 + 0] = btn.x;
+				theDelegate.vertexBuffer_3[3 * theDelegate.vertexCount_3 + 1] = btn.y;
+				theDelegate.vertexBuffer_3[3 * theDelegate.vertexCount_3 + 2] = 0.0f;
+			 	theDelegate.vertexCount_3 += 1;
+			}
+			if (owner==4)
+			{
+				if(theDelegate.vertexCount_4 == theDelegate.vertexMax_4) {
+					theDelegate.vertexMax_4 = 2 * theDelegate.vertexMax_4;
+					theDelegate.vertexBuffer_4 = realloc(theDelegate.vertexBuffer_4, theDelegate.vertexMax_4 * 3 * sizeof(GLfloat));
+				}
+				theDelegate.vertexBuffer_4[3 * theDelegate.vertexCount_4 + 0] = btn.x;
+				theDelegate.vertexBuffer_4[3 * theDelegate.vertexCount_4 + 1] = btn.y;
+				theDelegate.vertexBuffer_4[3 * theDelegate.vertexCount_4 + 2] = 0.0f;
+			 	theDelegate.vertexCount_4 += 1;
+			}
+			
+		}
+			
 	
 	}
 	
@@ -1694,7 +1892,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		[flagBtn addTarget:self action:@selector(flagTouched:) forControlEvents:UIControlEventTouchUpInside];
 		
 		//add
-		[[theDelegate.viewController glView] addSubview:flagBtn];
+	//	[[theDelegate.viewController glView] addSubview:flagBtn];
 		
 		
 		
@@ -1739,7 +1937,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		// as we start the fade effect, start the timeout timer for automatically hiding HoverView
 		[self buildWebView];
 		webViewFrame.alpha = 1.0;
-		self.scrollEnabled = NO;
+		//self.scrollEnabled = NO;
 		noTouch = 1;
 		detailedImageView.userInteractionEnabled = NO;
 		[detailedImageView bringSubviewToFront:webViewFrame];
@@ -1751,7 +1949,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	else
 	{
 		webViewFrame.alpha = 0.0;
-		self.scrollEnabled = YES;
+		//self.scrollEnabled = YES;
 		noTouch = 0;
 		detailedImageView.userInteractionEnabled = YES;
 		self.uploadButton.enabled  = NO;
@@ -1771,7 +1969,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		// as we start the fade effect, start the timeout timer for automatically hiding HoverView
 		[self buildConfView];
 		confView.alpha = 1.0;
-		self.scrollEnabled = NO;
+		//self.scrollEnabled = NO;
 		detailedImageView.userInteractionEnabled = NO;
 		[detailedImageView bringSubviewToFront:confView];
 		
@@ -1779,7 +1977,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	else
 	{
 		confView.alpha = 0.0;
-		self.scrollEnabled = YES;
+		//self.scrollEnabled = YES;
 		detailedImageView.userInteractionEnabled = YES;
 		
 	}
@@ -1803,7 +2001,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		// as we start the fade effect, start the timeout timer for automatically hiding HoverView
 		[self buildLoginView];
 		loginView.alpha = 1.0;
-		self.scrollEnabled = NO;
+		//self.scrollEnabled = NO;
 		noTouch = 1;
 		detailedImageView.userInteractionEnabled = NO;
 		[detailedImageView bringSubviewToFront:loginView];
@@ -1815,7 +2013,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	else
 	{
 		loginView.alpha = 0.0;
-		self.scrollEnabled = YES;
+		//self.scrollEnabled = YES;
 		detailedImageView.userInteractionEnabled = YES;
 		noTouch = 0;
 		self.uploadButton.enabled  = NO;
@@ -1846,7 +2044,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		hoverView.alpha = 1.0;
 		myTimer = [[NSTimer timerWithTimeInterval:60.0 target:self selector:@selector(timerFired:) userInfo:nil repeats:NO] retain];
 		[[NSRunLoop currentRunLoop] addTimer:myTimer forMode:NSDefaultRunLoopMode];
-		self.scrollEnabled = NO;
+		//self.scrollEnabled = NO;
 		noTouch = 1;
 		[detailedImageView bringSubviewToFront:hoverView];
 		if ( server_ind==1 && theDelegate.is_login==1 )
@@ -1867,7 +2065,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	else
 	{
 		hoverView.alpha = 0.0;
-		self.scrollEnabled = YES;
+		//self.scrollEnabled = YES;
 		if ( check_focusFlag == 1 ) 
 		{
 			[focusFlag removeFromSuperview];
@@ -1997,22 +2195,26 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 {
 	// user touched the right button in HoverView
 	NSLog(@"Right btn");
-	[self showHoverView:NO];
-	
+	[self showHoverView:NO];	
 	[theDelegate flipView:2];
-	
+}
 
-
+- (IBAction)gotoStatusPage
+{
+	// user touched the left button in HoverView
+	NSLog(@"StatusPage");
+	[theDelegate flipView:3];
 }
 
 - (void)selectPhotoStatus
 {
-	dispStatus_ind = 1;
-	NSString *tempString = [NSString stringWithFormat:@"http://photocity.cs.washington.edu/iphone/photos.php?player_id=%@", [NSString stringWithFormat:@"%d",  theDelegate.p_id]];
-	[webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:tempString]]];
-	webViewTitle.text = @"My Photo Stash";
+	
 	if (theDelegate.is_login)
 	{
+		dispStatus_ind = 1;
+		NSString *tempString = [NSString stringWithFormat:@"http://photocity.cs.washington.edu/iphone/photos.php?player_id=%@", [NSString stringWithFormat:@"%d",  theDelegate.p_id]];
+		[webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:tempString]]];
+		webViewTitle.text = @"My Photo Status";
 		[self showWebView:1];
 	}
 	else
@@ -2040,7 +2242,7 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 		dispStatus_ind = 1;
 		NSString *tempString = [NSString stringWithFormat:@"http://photocity.cs.washington.edu/iphone/photos.php?player_id=%@", [NSString stringWithFormat:@"%d",  theDelegate.p_id]];
 		[webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:tempString]]];
-		webViewTitle.text = @"My Photo Stash";
+		webViewTitle.text = @"My Photo Status";
 		[self showWebView:1];
 	
 	}
@@ -2066,6 +2268,15 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 }
 
 
+- (void)changeCenter: (NSNotification *)aNotification{
+	
+	//MKCoordinateRegion region;
+	//region.center.latitude     = 47.655;//(maxLat + minLat) / 2;
+	//region.center.longitude    = -122.505;//(maxLon + minLon) / 2;
+	[_mapView setCenterCoordinate:theDelegate.movingCenter animated:YES];	
+	//[self.mapView setCenterCoordinate:region.center animated:YES];
+	
+}
 
 
 - (void) performCurl 
@@ -2084,6 +2295,8 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 	[NSTimer scheduledTimerWithTimeInterval:0.5 target:self selector:@selector(curlPage) userInfo:nil repeats:NO];
 
 } 
+
+
 
 - (void) curlPage
 {
@@ -2126,7 +2339,50 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 }
  
 
+/*
+
+
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
+    NSLog(@"GY Hit Test");
 	
+	NSLog([NSString stringWithFormat:@"%f, %f", point.x,point.y]);
+	
+    self = [super hitTest:point withEvent:event];
+	[self hitTest:point withEvent:event];
+    return self;
+}
+
+
+- (void) sendEvent:(UIEvent*)event {
+	NSLog(@"GY Send Event");
+	[super sendEvent:event];
+} 
+
+//Then, when an event is fired, we log this one and then send it back to the viewTouched we kept, and voilà!!! :)
+- (void) touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
+    NSLog(@"GY Touch Began");
+	//    [viewTouched touchesBegan:touches withEvent:event];
+}
+
+- (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event {
+    NSLog(@"GY Touch Moved");
+	[super touchesMoved:touches withEvent:event];
+}
+
+
+
+- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
+    NSLog(@"GY Touch Ended");
+    //[viewTouched touchesEnded:touches withEvent:event];
+}
+
+- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event {
+    NSLog(@"GY Touch Cancelled");
+	
+}
+
+*/
+
 
 @end
 ///////////////////////
@@ -2154,68 +2410,3 @@ static CGImageRef GYImageCreateScaledDown(CGImageRef source, size_t width, size_
 
 @end
 
-
-
-@implementation GYImageView (ScrollViewDelegate)
-
-
-- (UIView *)viewForZoomingInScrollView:(UIScrollView *)aScrollView
-{
-	if ([self isScrollEnabled])
-	{
-	if ([imageViewDelegate respondsToSelector:@selector(imageViewWillZoom:)])
-		[imageViewDelegate imageViewWillZoom:self];
-	
-	[detailedImageView removeFromSuperview];
-	[detailedImageView release];
-	detailedImageView = nil;
-	return contentView;
-	}
-	
-}
-
-- (void)scrollViewDidEndZooming:(UIScrollView *)aScrollView withView:(UIView *)view atScale:(float)aScale
-{
-	if (noTouch == 1)
-	{
-		return;
-	}
-	scale = aScale;
-	[self updateDetailedImageView];
-	
-	if ([imageViewDelegate respondsToSelector:@selector(imageViewDidEndZooming:atScale:)])
-		[imageViewDelegate imageViewDidEndZooming:self atScale:scale];
-	
-}
-
-- (void)scrollViewDidEndDragging:(UIScrollView *)aScrollView willDecelerate:(BOOL)decelerate
-{
-	if (decelerate)
-		return;
-	
-	[self updateDetailedImageView];
-	
-	if ([imageViewDelegate respondsToSelector:@selector(imageViewDidScroll:)])
-		[imageViewDelegate imageViewDidScroll:self];
-}
-
-- (void)scrollViewDidEndDecelerating:(UIScrollView *)aScrollView
-{
-	[self updateDetailedImageView];
-	
-	if ([imageViewDelegate respondsToSelector:@selector(imageViewDidScroll:)])
-		[imageViewDelegate imageViewDidScroll:self];
-}
-
-- (void)scrollViewDidScroll:(UIScrollView *)scrollView
-{
-	if (!scrollView.tracking && !scrollView.dragging && !scrollView.decelerating && !scrollView.zooming)
-    {
-		[self updateDetailedImageView];
-		
-		if ([imageViewDelegate respondsToSelector:@selector(imageViewDidScroll:)])
-			[imageViewDelegate imageViewDidScroll:self];
-    }
-}
-
-@end

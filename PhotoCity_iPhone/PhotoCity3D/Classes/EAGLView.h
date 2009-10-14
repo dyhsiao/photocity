@@ -34,10 +34,12 @@ Note that setting the view non-opaque will only work if the EAGL surface has an 
 */
 @interface EAGLView : UIView {
 	
+	//NSThread *drawThread;
 	ImageViewAppDelegate* theDelegate;
-	UIButton* meBtn;
+	//UIButton* meBtn;
 	int drag_ind;
 	int hoverView_ind;
+	GLuint			    brushTexture;
     
 @private
     /* The pixel dimensions of the backbuffer */
@@ -72,7 +74,7 @@ Note that setting the view non-opaque will only work if the EAGL surface has an 
 
 @property NSTimeInterval animationInterval;
 @property (nonatomic, retain) ImageViewAppDelegate* theDelegate;
-@property (nonatomic, retain) UIButton* meBtn;
+//@property (nonatomic, retain) UIButton* meBtn;
 
 - (void)startAnimation;
 - (void)stopAnimation;

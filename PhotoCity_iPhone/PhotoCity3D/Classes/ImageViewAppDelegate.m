@@ -11,6 +11,7 @@
 #import "testPickerViewController.h"
 #import "loadViewController.h"
 #import "SplashViewController.h"
+#import "PersonalViewController.h"
 
 /* cache update interval in seconds */
 const double URLCacheInterval = 86400.0;
@@ -30,6 +31,7 @@ const double URLCacheInterval = 86400.0;
 @synthesize viewLibPickerController;
 @synthesize viewLoadController;
 @synthesize viewSController;
+@synthesize viewPController;
 
 //JSON
 @synthesize jArray;
@@ -37,6 +39,10 @@ const double URLCacheInterval = 86400.0;
 @synthesize jUArray;
 @synthesize jUFArray;
 @synthesize jTFArray;
+
+@synthesize minLatLon,maxLatLon,s_btnLoc,movingCenter;
+@synthesize touchEndPoint, touchMovingPoint, touchStartPoint, touchStatus;
+@synthesize vertexBuffer_1, vertexBuffer_2, vertexBuffer_3, vertexBuffer_4,vertexCount_1,count_1,i_1,vertexCount_2,count_2,i_2,vertexCount_3,count_3,i_3,vertexCount_4,count_4,i_4,vertexMax_1,vertexMax_2,vertexMax_3,vertexMax_4;
 
 
 - (void)applicationDidFinishLaunching:(UIApplication *)application {    
@@ -87,8 +93,6 @@ const double URLCacheInterval = 86400.0;
 	
 	if (onFront == 1) //uploadPic
 	{
-		
-		
 		//[UIView setAnimationTransition:UIViewAnimationTransitionFlipFromLeft forView:self.viewController.view cache:YES];
 		//[viewPickerController.view removeFromSuperview];
 		//[window addSubview:viewPickerController.view];
@@ -112,19 +116,23 @@ const double URLCacheInterval = 86400.0;
 		}
 		[viewPickerController presentModalViewController:viewPickerController.imgPicker animated:YES];
 		//onFront = 0;
-	}/*
-	else if (onFront == 3) //after load
+	}
+	else if (onFront == 3) //status page
 	{
 		[UIView beginAnimations:nil context:NULL];
-		[UIView setAnimationDuration:2.0];
-		[UIView setAnimationTransition:UIViewAnimationTransitionCurlUp forView:self.viewController.view cache:YES];
-		[viewLoadController.view removeFromSuperview];
-		[window addSubview:viewController.view];
-		//		[backView removeFromSuperview];
-		//		[self addSubview:frontView];
-		//onFront = 1;
+		[UIView setAnimationDuration:0.40];
+		[UIView setAnimationTransition:UIViewAnimationTransitionFlipFromRight forView:window cache:YES]; 
+		[window bringSubviewToFront:viewPController.view];
 		[UIView commitAnimations];
-	}*/
+	}
+	else if (onFront == 4) //go back to main page
+	{
+		[UIView beginAnimations:nil context:NULL];
+		[UIView setAnimationDuration:0.40];
+		[UIView setAnimationTransition:UIViewAnimationTransitionFlipFromLeft forView:window cache:YES]; 
+		[window bringSubviewToFront:viewController.view];
+		[UIView commitAnimations];
+	}
 	else
 	{
 		//[UIView setAnimationTransition:UIViewAnimationTransitionFlipFromLeft forView:self.viewController.view cache:YES];
@@ -149,9 +157,9 @@ const double URLCacheInterval = 86400.0;
 	NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
 	// saving an NSString
 	[prefs setObject:p_name forKey:@"userID"];
-	NSLog(@"userID, %s",[ p_name cString]);
+	//NSLog(@"userID, %s",[ p_name cString]);
 	[prefs setObject:p_pswd forKey:@"userPSWD"];
-	NSLog(@"userPSWD, %s", [p_pswd cString]);
+	//NSLog(@"userPSWD, %s", [p_pswd cString]);
 	// saving an NSInteger
 	[prefs setInteger:instruction_ind forKey:@"instruction"];
 	//[prefs setInteger:p_id forKey:@"player_id"];
@@ -162,6 +170,10 @@ const double URLCacheInterval = 86400.0;
 	
 	[prefs setDouble:lastLocationX forKey:@"lastLocationX"];
 	[prefs setDouble:lastLocationY forKey:@"lastLocationY"];
+	[prefs setFloat:maxLatLon.x forKey:@"maxLatLon_x"];
+	[prefs setFloat:maxLatLon.y forKey:@"maxLatLon_y"];
+	[prefs setFloat:minLatLon.x forKey:@"minLatLon_x"];
+	[prefs setFloat:minLatLon.y forKey:@"minLatLon_y"];
 	// This is suggested to synch prefs, but is not needed (I didn't put it in my tut)
 	[prefs synchronize];
 }
@@ -184,6 +196,10 @@ const double URLCacheInterval = 86400.0;
 	// getting an Float
 	lastLocationX = [prefs doubleForKey:@"lastLocationX"];
 	lastLocationY = [prefs doubleForKey:@"lastLocationY"];
+	minLatLon.x = [prefs floatForKey:@"minLatLon_x"];
+	minLatLon.y = [prefs floatForKey:@"minLatLon_y"];
+	maxLatLon.x = [prefs floatForKey:@"maxLatLon_x"];
+	maxLatLon.y = [prefs floatForKey:@"maxLatLon_y"];
 }
 
 
@@ -194,6 +210,7 @@ const double URLCacheInterval = 86400.0;
 	[viewPickerController release];
 	[viewLoadController release];
 	[viewSController release];
+	[viewPController release];
 	
 	//JSON
 	

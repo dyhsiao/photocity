@@ -7,6 +7,7 @@
 @synthesize myActivityIndicator;
 @synthesize qProgressIndicator;
 @synthesize glView;
+@synthesize viewTouch;
 
 
 /*
@@ -38,20 +39,22 @@
 	
   [super viewDidLoad];
 
-  NSString *path = [[NSBundle mainBundle] pathForResource:@"Brickn1" ofType:@"jpg"];
-  CGDataProviderRef provider = CGDataProviderCreateWithFilename([path UTF8String]);
-  CGImageRef img = CGImageCreateWithJPEGDataProvider(provider, NULL, true, kCGRenderingIntentDefault);
+//  NSString *path = [[NSBundle mainBundle] pathForResource:@"Brickn1" ofType:@"jpg"];
+//  CGDataProviderRef provider = CGDataProviderCreateWithFilename([path UTF8String]);
+ // CGImageRef img = CGImageCreateWithJPEGDataProvider(provider, NULL, true, kCGRenderingIntentDefault);
 	
   
-  imageView.CGImage = img;
-  CGImageRelease(img);
-  CGDataProviderRelease(provider);
+//  imageView.CGImage = img;
+//  CGImageRelease(img);
+//  CGDataProviderRelease(provider);
   
-  imageView.maximumZoomScale = 6.0;
-  imageView.minimumZoomScale = 0.8;
+//  imageView.maximumZoomScale = 6.0;
+//  imageView.minimumZoomScale = 0.8;
 	
-	glView.animationInterval = 1.0 / 60.0;
-	[glView startAnimation];
+	[imageView updateImageView];
+	
+	//glView.animationInterval = 5.0 / 1.0;
+	//[glView startAnimation];
 
 }
 
@@ -93,6 +96,7 @@
 
 
 	[myActivityIndicator release];
+	[viewTouch release];
 	[glView release];
 	[super dealloc];
 
