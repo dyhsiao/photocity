@@ -9,6 +9,7 @@
 #import "SplashViewController.h"
 #import "ImageViewAppDelegate.h"
 #import "testPickerViewController.h"
+#import "PersonalViewController.h"
 
 @implementation SplashViewController
 
@@ -41,6 +42,8 @@
 	splashImageView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"Splash.png"]];
 	splashImageView.frame = CGRectMake(0, 20, 320, 460);
 	[theDelegate.window addSubview:splashImageView];
+	[theDelegate restoreState];
+	
 	
 	splashActInd = [[UIActivityIndicatorView alloc] initWithFrame: CGRectMake(208, 215, 24, 24)];
 	splashActInd.activityIndicatorViewStyle = UIActivityIndicatorViewStyleWhite;
@@ -59,13 +62,14 @@
 
 - (void)fadeScreen
 {
-	
+	//note the sequence
+	[theDelegate.window addSubview:theDelegate.viewPController.view];
 	[theDelegate.window addSubview:theDelegate.viewLibPickerController.view];
 	[theDelegate.window addSubview:theDelegate.viewPickerController.view];
 	[theDelegate.window addSubview:theDelegate.viewController.view];
 	[theDelegate.window bringSubviewToFront:splashImageView];
 	
-	[theDelegate restoreState];
+	//[theDelegate restoreState];
 	theDelegate.queue_count=0;
 	theDelegate.queue_total=0;
 	theDelegate.viewController.qProgressIndicator.hidden=YES;
@@ -92,6 +96,7 @@
 	theDelegate.viewController.view.alpha = 1.0;
 	theDelegate.viewPickerController.view.alpha = 1.0;
 	theDelegate.viewLibPickerController.view.alpha = 1.0;
+	theDelegate.viewPController.view.alpha = 1.0;
 	self.view.alpha = 1.0;   // fades the view to 1.0 alpha over 0.75 seconds
 	[UIView commitAnimations];   // commits the animation block.  This Block is done.
 	[splashImageView removeFromSuperview];

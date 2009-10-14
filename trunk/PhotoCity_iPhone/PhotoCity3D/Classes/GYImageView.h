@@ -2,6 +2,11 @@
 #import <UIKit/UIKit.h>
 //#import <AudioToolbox/AudioServices.h>
 #import <CoreLocation/CoreLocation.h>
+#import <QuartzCore/QuartzCore.h>
+#import <MapKit/MapKit.h>
+#import "CSMapRouteLayerView.h"
+
+
 
 @class HoverView;
 @class ConfView;
@@ -12,6 +17,8 @@
 extern NSString *Show_HoverView;
 extern NSString *Show_LoginView;
 extern NSString *Show_ConfView;
+extern NSString *Find_Flag;
+extern NSString *Change_Center;
 
 @protocol GYImageViewDelegate<NSObject>
 
@@ -30,7 +37,7 @@ extern NSString *Show_ConfView;
 
 @end
 
-@interface GYImageView : UIScrollView <UIScrollViewDelegate,UIWebViewDelegate> {
+@interface GYImageView : UIView <UIWebViewDelegate> {
   CGImageRef rawImage;
   UIView *contentView;
   UIImageView *imageView;
@@ -110,7 +117,7 @@ extern NSString *Show_ConfView;
 	//Toolbar
 	IBOutlet UIToolbar *upperBar;
 	IBOutlet UIBarButtonItem *reloadButton;
-	IBOutlet UIBarButtonItem *showModelsButton;
+	IBOutlet UIBarButtonItem *tfButton;
 	IBOutlet UIBarButtonItem *loginButton;
 	IBOutlet UIButton *photoStatusButton;
 	IBOutlet UIButton *scoreBoardButton;
@@ -146,8 +153,23 @@ extern NSString *Show_ConfView;
 	
 	NSMutableString *t_name;
 	NSMutableString *t_pswd; 
+	
+	//mapView
+	CALayer *transformed;
+	CGPoint previousLocation;
+	CGFloat startingTouchDistance, previousScale;	
+	MKMapView* _mapView;
+	CSMapRouteLayerView* _routeView;
+
+
+	
 
 }
+
+//mapView
+@property (nonatomic, retain) MKMapView* mapView;
+@property (nonatomic, retain) CSMapRouteLayerView* routeView;
+
 
 @property (assign, nonatomic) CGImageRef CGImage;
 @property (assign, nonatomic, readonly) CGFloat scale;
@@ -173,7 +195,7 @@ extern NSString *Show_ConfView;
 //Toolbar
 @property (nonatomic, retain) UIToolbar *upperBar;
 @property (nonatomic, retain) UIBarButtonItem *reloadButton;
-@property (nonatomic, retain) UIBarButtonItem *showModelsButton;
+@property (nonatomic, retain) UIBarButtonItem *tfButton;
 @property (nonatomic, retain) UIBarButtonItem *loginButton;
 @property (nonatomic, retain) UIButton *photoStatusButton;
 @property (nonatomic, retain) UIButton *scoreBoardButton;
@@ -241,15 +263,16 @@ extern NSString *Show_ConfView;
 - (IBAction)login;
 - (IBAction)uploadPic;
 - (IBAction)takePic;
+- (IBAction)gotoStatusPage;
 - (IBAction)switchStatus;
 - (void)closeHoverView;
 - (void)closeLoginView;
 - (void)closeWebView;
 - (IBAction)loginStart;
 - (IBAction)loginCommit;
-- (void) showTeamFlags;
+- (IBAction) showTeamFlags;
 - (void)buttonPressed: (id)sender;
-- (void)flagTouched: (id)sender;
+//- (void)flagTouched: (id)sender;
 - (void)dispModel;
 - (IBAction) whereAmI;
 - (void)selectPhotoStatus;
@@ -273,5 +296,9 @@ extern NSString *Show_ConfView;
 - (void)getDetailedModelData:(NSDictionary *)dict;
 - (IBAction)serverButtonPressed;
 - (IBAction)switchInstruction;
+
+- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event; 
+- (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event;
+
 
 @end
